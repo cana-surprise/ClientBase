@@ -1,0 +1,523 @@
+﻿<Window x:Class="ClientBase.OrderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ClientBase"
+        Title="Заказ" Width="1400" Height="880" MinWidth="1200" MinHeight="720"
+        WindowStartupLocation="CenterOwner" FontSize="14"
+        Background="{StaticResource BgBrush}" Foreground="{StaticResource TextBrush}"
+        Closing="Window_Closing">
+
+    <Window.Resources>
+        <!-- ✕ в строке таблицы; на служебной пустой строке «новая запись» не показывается -->
+        <Style x:Key="RowDeleteButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding}" Value="{x:Static CollectionView.NewItemPlaceholder}">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="GridHint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style x:Key="StatusChip" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource NeutralChipBrush}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="11,3"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding StatusText}" Value="Готов">
+                    <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="В производстве">
+                    <Setter Property="Background" Value="{StaticResource WarnSoftBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="StatusText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding StatusText}" Value="Готов">
+                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusText}" Value="В производстве">
+                    <Setter Property="Foreground" Value="{StaticResource WarnBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Готовый материал: приглушённый и зачёркнутый -->
+        <Style x:Key="MaterialLineText" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsReady}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                    <Setter Property="TextDecorations" Value="Strikethrough"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ===== Шапка: номер и клиент, название, дата ===== -->
+        <Border Grid.Row="0" Style="{StaticResource Card}" Padding="20,14" Margin="0,0,0,12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <DockPanel>
+                    <TextBlock x:Name="NumberText" DockPanel.Dock="Left" FontSize="36" FontWeight="Bold"
+                               Foreground="{StaticResource AccentBrush}" Margin="0,0,22,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ClientText" FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+
+                <Grid Grid.Row="1" Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Название заказа" Foreground="{StaticResource MutedBrush}"
+                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Например: Кухня на Советской, Офис на Ленина"/>
+                    <TextBlock Grid.Column="2" Text="Дата заказа" Foreground="{StaticResource MutedBrush}"
+                               VerticalAlignment="Center" Margin="26,0,10,0"/>
+                    <DatePicker Grid.Column="3" Width="160" SelectedDate="{Binding Date}" VerticalContentAlignment="Center"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ===== Основная часть: слева фото, справа папка проекта и вкладки ===== -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="400"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1.15*"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <local:PhotoBox x:Name="ProjectPhotoBox" Title="Фото проекта — расстановка изделий"
+                                Photo="{Binding ProjectPhoto, Mode=TwoWay}" FileAdded="Photo_FileAdded"/>
+                <local:PhotoBox x:Name="ItemPhotoBox" Grid.Row="2" IsEnabled="False"
+                                Title="{Binding ProductName, StringFormat=Фото изделия: {0}, FallbackValue=Фото изделия}"
+                                Photo="{Binding Photo, Mode=TwoWay}" FileAdded="Photo_FileAdded"/>
+            </Grid>
+
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Папка проекта Базис -->
+                <Border Style="{StaticResource Card}" Padding="12,9" Margin="0,0,0,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Папка проекта Базис" Foreground="{StaticResource MutedBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding ProjectFolder, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Папка проекта из Базис-Мебельщика (с подпапками 3Д, Эскизы, Фурник)"/>
+                        <Button Grid.Column="2" Content="Выбрать…" Margin="8,0,0,0" Click="ChooseFolder_Click"/>
+                        <Button Grid.Column="3" Content="⟳  Изделия и фото" Margin="6,0,0,0" Click="Import_Click"
+                                ToolTip="Добавить изделия с эскизами и общее фото проекта из папки"/>
+                        <Button Grid.Column="4" Content="⟳  Материалы и фурнитура" Margin="6,0,0,0"
+                                Click="ImportMaterials_Click"
+                                ToolTip="Из таблицы в папке «Фурник»: материалы — во вкладку «Материалы», фурнитуру — во вкладку «Фурнитура»"/>
+                    </Grid>
+                </Border>
+
+                <TabControl x:Name="Tabs" Grid.Row="1">
+                    <!-- Вкладка: Изделия -->
+                    <TabItem Header="Изделия">
+                        <DockPanel Margin="14">
+                            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource GridHint}" Margin="0,10,0,0"
+                                       Text="Щёлкните изделие — слева появится его фото. Строка добавляется кнопкой «+». Удалить: ✕ в конце строки или клавиша Delete (с подтверждением)."/>
+                            <Button DockPanel.Dock="Bottom" Style="{StaticResource AddRowButton}" Margin="0,10,0,0"
+                                    Click="AddItem_Click"/>
+
+                            <DataGrid x:Name="ItemsGrid" ItemsSource="{Binding Items}" AutoGenerateColumns="False"
+                                      CanUserAddRows="False" RowHeight="40" KeyboardNavigation.TabNavigation="Continue"
+                                      SelectionChanged="ItemsGrid_SelectionChanged" PreviewKeyDown="ItemsGrid_PreviewKeyDown"
+                                      PreviewMouseLeftButtonDown="Grid_PreviewMouseLeftButtonDown"
+                                      GotKeyboardFocus="Grid_GotKeyboardFocus">
+                                <DataGrid.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                        <Setter Property="Focusable" Value="False"/>
+                                    </Style>
+                                </DataGrid.CellStyle>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="" Width="40" IsReadOnly="True"
+                                                        Binding="{Binding PhotoMark, Mode=OneWay}"
+                                                        ElementStyle="{StaticResource CellText}"/>
+                                    <DataGridTemplateColumn Header="№" Width="70">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Style="{StaticResource CellInputRight}" Text="{Binding NumberText}"
+                                                         ToolTip="Номер изделия (из имени файла проекта)"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Наименование изделия" Width="*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Style="{StaticResource CellInput}"
+                                                         Text="{Binding ProductName, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Кол-во" Width="96">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Style="{StaticResource CellInputRight}"
+                                                         Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="" Width="48" IsReadOnly="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="✕" Style="{StaticResource RowDeleteButton}"
+                                                        ToolTip="Удалить изделие" Click="RemoveItemRow_Click"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Вкладка: Материалы -->
+                    <TabItem Header="Материалы">
+                        <DockPanel Margin="14">
+                            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource GridHint}" Margin="0,8,0,0"
+                                       Text="В производство отправляются материалы. «＋ Изготовитель — новый заказ» создаёт новый заказ в производство этого изготовителя (в том числе если у него уже есть заказ); чтобы добавить материал в существующий заказ, выберите его номер. Галочка — материал готов."/>
+
+                            <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                                <TextBlock DockPanel.Dock="Left" Text="Выбранные материалы отправить в:"
+                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <Button DockPanel.Dock="Right" Content="Назначить" Margin="8,0,0,0"
+                                        Click="AssignSelected_Click"/>
+                                <ComboBox x:Name="AssignCombo" ItemsSource="{Binding ProductionChoices}"
+                                          DisplayMemberPath="Label"/>
+                            </DockPanel>
+                            <Button DockPanel.Dock="Bottom" Style="{StaticResource AddRowButton}" Margin="0,10,0,0"
+                                    Click="AddMaterial_Click"/>
+
+                            <DataGrid x:Name="MaterialsGrid" ItemsSource="{Binding Materials}" AutoGenerateColumns="False"
+                                      CanUserAddRows="False" RowHeight="40" KeyboardNavigation.TabNavigation="Continue"
+                                      PreviewKeyDown="MaterialsGrid_PreviewKeyDown"
+                                      PreviewMouseLeftButtonDown="Grid_PreviewMouseLeftButtonDown"
+                                      GotKeyboardFocus="Grid_GotKeyboardFocus">
+                                <DataGrid.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                        <Setter Property="Focusable" Value="False"/>
+                                    </Style>
+                                </DataGrid.CellStyle>
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="Материал" Width="*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Style="{StaticResource CellInput}"
+                                                         Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Количество" Width="140">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Style="{StaticResource CellInput}"
+                                                         Text="{Binding Amount, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Производство" Width="220">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox DisplayMemberPath="Label" Margin="4,3"
+                                                          ItemsSource="{Binding DataContext.ProductionChoices, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}"
+                                                          SelectedItem="{Binding Assigned, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Готово" Width="72">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          IsChecked="{Binding IsReady, UpdateSourceTrigger=PropertyChanged}"
+                                                          ToolTip="Материал готов"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="" Width="48" IsReadOnly="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="✕" Style="{StaticResource RowDeleteButton}"
+                                                        ToolTip="Удалить материал" Click="RemoveMaterialRow_Click"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Вкладка: Фурнитура -->
+                    <TabItem Header="Фурнитура">
+                        <DockPanel Margin="14">
+                            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource GridHint}" Margin="0,10,0,0"
+                                       Text="Фурнитура (крепёж, петли, направляющие…) подтягивается из таблицы в папке «Фурник». Строка добавляется кнопкой «+». Удалить: ✕ в конце строки или клавиша Delete (с подтверждением)."/>
+                            <Button DockPanel.Dock="Bottom" Style="{StaticResource AddRowButton}" Margin="0,10,0,0"
+                                    Click="AddHardware_Click"/>
+
+                            <DataGrid x:Name="HardwareGrid" ItemsSource="{Binding Hardware}" AutoGenerateColumns="False"
+                                      CanUserAddRows="False" RowHeight="40" KeyboardNavigation.TabNavigation="Continue"
+                                      PreviewKeyDown="HardwareGrid_PreviewKeyDown"
+                                      PreviewMouseLeftButtonDown="Grid_PreviewMouseLeftButtonDown"
+                                      GotKeyboardFocus="Grid_GotKeyboardFocus">
+                                <DataGrid.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                        <Setter Property="Focusable" Value="False"/>
+                                    </Style>
+                                </DataGrid.CellStyle>
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="Наименование" Width="*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Style="{StaticResource CellInput}"
+                                                         Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Количество" Width="170">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Style="{StaticResource CellInput}"
+                                                         Text="{Binding Amount, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="" Width="48" IsReadOnly="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="✕" Style="{StaticResource RowDeleteButton}"
+                                                        ToolTip="Удалить фурнитуру" Click="RemoveHardwareRow_Click"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Вкладка: Производство -->
+                    <TabItem Header="Производство">
+                        <DockPanel Margin="14">
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <Button DockPanel.Dock="Right" Content="＋  Заказ в производство"
+                                        Style="{StaticResource PrimaryButton}" Click="AddProduction_Click"/>
+                                <TextBlock Style="{StaticResource GridHint}" VerticalAlignment="Center" Margin="0,0,16,0"
+                                           Text="Заказ можно разбить на несколько заказов в производство: 12-1, 12-2… У каждого свой изготовитель, номер и даты. Материалы назначаются на вкладке «Материалы»."/>
+                            </DockPanel>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock Text="Заказов в производство пока нет. Назначьте материалы на вкладке «Материалы», выбрав изготовителя, или нажмите «＋ Заказ в производство»."
+                                               Style="{StaticResource GridHint}" FontSize="14" Margin="4,30,4,0"
+                                               TextAlignment="Center">
+                                        <TextBlock.Visibility>
+                                            <Binding Path="Productions.Count">
+                                                <Binding.Converter>
+                                                    <local:ZeroToVisibleConverter/>
+                                                </Binding.Converter>
+                                            </Binding>
+                                        </TextBlock.Visibility>
+                                    </TextBlock>
+
+                                    <ItemsControl ItemsSource="{Binding Productions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource Card}" Padding="16,12" Margin="0,0,0,12"
+                                                        Background="#FDFBF7">
+                                                    <StackPanel>
+                                                        <!-- заголовок заказа -->
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding Code}" FontSize="24" FontWeight="Bold"
+                                                                       Foreground="{StaticResource AccentBrush}"
+                                                                       VerticalAlignment="Center"/>
+                                                            <Border Grid.Column="1" Style="{StaticResource StatusChip}" Margin="14,0,0,0">
+                                                                <TextBlock Text="{Binding StatusText}" Style="{StaticResource StatusText}"/>
+                                                            </Border>
+                                                            <CheckBox Grid.Column="3" Content="Все материалы готовы" Margin="0,0,10,0"
+                                                                      VerticalAlignment="Center"
+                                                                      IsChecked="{Binding AllDone, Mode=TwoWay}"
+                                                                      IsEnabled="{Binding HasLines}"
+                                                                      ToolTip="Отметить или снять готовность всех материалов этого заказа"/>
+                                                            <Button Grid.Column="4" Content="✕" Style="{StaticResource IconButton}"
+                                                                    ToolTip="Удалить заказ в производство"
+                                                                    Click="RemoveProductionRow_Click"/>
+                                                        </Grid>
+
+                                                        <!-- поля -->
+                                                        <WrapPanel Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,12,8">
+                                                                <TextBlock Text="Изготовитель" Style="{StaticResource Caption}"/>
+                                                                <ComboBox Width="190" DisplayMemberPath="Name"
+                                                                          ItemsSource="{Binding Manufacturers, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                          SelectedItem="{Binding Manufacturer, UpdateSourceTrigger=PropertyChanged}"/>
+                                                            </StackPanel>
+                                                            <StackPanel Margin="0,0,12,8">
+                                                                <TextBlock Text="№ в производстве" Style="{StaticResource Caption}"/>
+                                                                <TextBox Width="150"
+                                                                         Text="{Binding ProductionNumber, UpdateSourceTrigger=PropertyChanged}"/>
+                                                            </StackPanel>
+                                                            <StackPanel Margin="0,0,12,8">
+                                                                <TextBlock Text="Отправлено" Style="{StaticResource Caption}"/>
+                                                                <DatePicker Width="150" VerticalContentAlignment="Center"
+                                                                            SelectedDate="{Binding SentDate, UpdateSourceTrigger=PropertyChanged}"/>
+                                                            </StackPanel>
+                                                            <StackPanel Margin="0,0,12,8">
+                                                                <TextBlock Text="Дата готовности" Style="{StaticResource Caption}"/>
+                                                                <DatePicker Width="150" VerticalContentAlignment="Center"
+                                                                            SelectedDate="{Binding ReadyDate, UpdateSourceTrigger=PropertyChanged}"/>
+                                                            </StackPanel>
+                                                        </WrapPanel>
+
+                                                        <!-- материалы заказа -->
+                                                        <TextBlock Text="{Binding MaterialsText}" Style="{StaticResource Caption}"
+                                                                   Margin="2,2,0,4"/>
+                                                        <ItemsControl ItemsSource="{Binding Lines}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Grid Margin="0,0,0,4" Background="Transparent">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <CheckBox IsChecked="{Binding IsReady, UpdateSourceTrigger=PropertyChanged}"
+                                                                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                                        <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                                                   Style="{StaticResource MaterialLineText}"/>
+                                                                        <TextBlock Grid.Column="2" Text="{Binding Amount}" Margin="14,0,4,0"
+                                                                                   Style="{StaticResource MaterialLineText}"/>
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- материалы, которые ещё никуда не отправлены -->
+                                    <Border Style="{StaticResource Card}" Padding="16,12" Background="#FAF7F1"
+                                            DataContext="{Binding NoProduction}">
+                                        <Border.Visibility>
+                                            <Binding Path="HasLines">
+                                                <Binding.Converter>
+                                                    <BooleanToVisibilityConverter/>
+                                                </Binding.Converter>
+                                            </Binding>
+                                        </Border.Visibility>
+                                        <StackPanel>
+                                            <TextBlock Text="Ещё не отправлены в производство" FontWeight="SemiBold"/>
+                                            <ItemsControl ItemsSource="{Binding Lines}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{StaticResource NeutralChipBrush}" CornerRadius="12"
+                                                                Padding="10,3" Margin="0,6,6,0">
+                                                            <TextBlock Text="{Binding Name}" FontSize="12.5"/>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Вкладка: Примечание -->
+                    <TabItem Header="Примечание">
+                        <DockPanel Margin="14">
+                            <TextBlock DockPanel.Dock="Top" Style="{StaticResource GridHint}" Margin="0,0,0,8"
+                                       Text="Размеры, материалы, сроки, адрес монтажа, пожелания клиента…"/>
+                            <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/>
+                        </DockPanel>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+        </Grid>
+
+        <!-- ===== Низ: итоги и кнопки ===== -->
+        <DockPanel Grid.Row="2" Margin="0,12,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <TextBlock x:Name="SavedText" Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center"
+                           Margin="0,0,14,0"/>
+                <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" MinWidth="140" Padding="18,9"
+                        Margin="0,0,8,0" Click="Save_Click" ToolTip="Ctrl+S"/>
+                <Button Content="Закрыть" MinWidth="100" Padding="18,9" Click="Close_Click"/>
+            </StackPanel>
+            <!-- Обе суммы вводятся вручную -->
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="16,0,26,0">
+                <StackPanel Margin="0,0,18,0">
+                    <TextBlock Text="Себестоимость, BYN" FontSize="17" FontWeight="Bold" Margin="2,0,0,4"
+                               Foreground="{StaticResource TextBrush}"/>
+                    <TextBox Width="190" FontSize="20" FontWeight="SemiBold" TextAlignment="Right"
+                             Text="{Binding CostText}" ToolTip="Себестоимость заказа — вводится вручную"/>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="Конечная цена заказа, BYN" FontSize="17" FontWeight="Bold" Margin="2,0,0,4"
+                               Foreground="{StaticResource TextBrush}"/>
+                    <TextBox Width="230" FontSize="20" FontWeight="Bold" TextAlignment="Right"
+                             Text="{Binding PriceText}" ToolTip="Цена для клиента — вводится вручную"/>
+                </StackPanel>
+            </StackPanel>
+            <TextBlock Text="{Binding ReadySummary}" VerticalAlignment="Center"
+                       Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
+        </DockPanel>
+    </Grid>
+</Window>
+

@@ -1,0 +1,61 @@
+<Window x:Class="ClientBase.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Настройки" Width="560" Height="720" MinWidth="480" MinHeight="640"
+        WindowStartupLocation="CenterOwner" FontSize="14"
+        Background="{StaticResource BgBrush}" Foreground="{StaticResource TextBrush}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Style="{StaticResource Card}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Изготовители" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,10"
+                           Text="Этот список появляется в выпадающем списке «Производство», когда материалы отправляются в производство. Добавьте сюда своих изготовителей (цехи, производителей)."/>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                    <TextBox x:Name="NameBox" Margin="0,0,0,8" KeyDown="NameBox_KeyDown"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="＋  Добавить" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
+                                Click="Add_Click"/>
+                        <Button Content="Переименовать" Margin="0,0,8,0" Click="Rename_Click"/>
+                        <Button Content="Удалить" Style="{StaticResource DangerButton}" Click="Delete_Click"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <ListBox x:Name="MakersList" DisplayMemberPath="Name" BorderBrush="{StaticResource LineBrush}"
+                         SelectionChanged="MakersList_SelectionChanged"/>
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,12,0,0">
+            <StackPanel>
+                <TextBlock Text="Данные программы" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock x:Name="DataPathText" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,10"/>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Изменить папку…" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
+                            Click="ChangeData_Click" ToolTip="Перенести базу, фото и резервные копии в другую папку"/>
+                    <Button Content="Открыть папку" Click="OpenData_Click"/>
+                </StackPanel>
+                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12.5" Margin="0,10,0,0"
+                           Text="В этой папке лежат база клиентов, все фото и резервные копии. Папку можно перенести на другой диск: данные копируются, старая папка остаётся на месте. Не открывайте одну и ту же базу с двух компьютеров одновременно."/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,12,0,0">
+            <StackPanel>
+                <TextBlock Text="Обновления" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock x:Name="VersionText" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,10"/>
+                <Button x:Name="CheckUpdatesButton" Content="Проверить обновления" HorizontalAlignment="Left"
+                        Click="CheckUpdates_Click"/>
+                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12.5" Margin="0,10,0,0"
+                           Text="Программа сама проверяет обновления при запуске, не чаще раза в сутки. Если есть новая версия, она предложит установить её — данные при этом не затрагиваются."/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
