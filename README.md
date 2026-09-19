@@ -73,7 +73,7 @@ powershell -ExecutionPolicy Bypass -File .\build-installer.ps1   # → dist\Baza
 |---|---|
 | `Models.cs` | Модель: клиенты, заказ, изделия, материалы, фурнитура, заказы в производство (без WPF) |
 | `Database.cs` | SQLite: схема с версиями (`PRAGMA user_version`), миграции, сохранение и загрузка |
-| `ProjectImport.cs`, `MaterialImport.cs` | Чтение папок Базис-Мебельщика и таблицы «Фурник» |
+| `ProjectImport.cs`, `MaterialImport.cs` | Чтение папок Базис-Мебельщика и таблиц материалов |
 | `DataLocation.cs` | Папка данных: настройка, проверка, перенос |
 | `Updates.cs`, `UpdateUi.cs`, `DownloadWindow.*` | Проверка и установка обновлений |
 | `MainWindow`, `OrderWindow`, `SettingsWindow`, `PhotoBox`, `PhotoViewer` | Окна |
