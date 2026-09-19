@@ -88,6 +88,27 @@ public record Manufacturer(int Id, string Name)
     public override string ToString() => Name;
 }
 
+/// <summary>Палитра цветов заказов в производство: каждому новому заказу достаётся случайный, ещё не занятый цвет.</summary>
+public static class ProductionColors
+{
+    public static readonly string[] Palette =
+    {
+        "#3E7CB1", "#2A9D8F", "#8E6BBF", "#C8547A", "#7F9A2B",
+        "#5C6BC0", "#A0522D", "#3F9E6A", "#B8860B", "#607D8B",
+        "#D0544B", "#1F8FA8",
+    };
+
+    static readonly Random Rng = new();
+
+    public static string Pick(IEnumerable<string> used)
+    {
+        var taken = used.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var free = Palette.Where(c => !taken.Contains(c)).ToArray();
+        var source = free.Length > 0 ? free : Palette;
+        return source[Rng.Next(source.Length)];
+    }
+}
+
 /// <summary>
 /// Заказ в производство («подзаказ») — часть общего заказа: «12-1», «12-2»… (номер заказа + подномер).
 /// В него отправляются материалы; у подзаказа свой изготовитель, номер в производстве и даты.
@@ -120,6 +141,10 @@ public class ProductionOrder : Notify
     }
 
     public string ProductionNumber { get => _productionNumber; set => Set(ref _productionNumber, value); }
+
+    /// <summary>Цвет заказа в производство («#RRGGBB»): назначается случайно и сохраняется.</summary>
+    public string ColorHex { get => _colorHex; set => Set(ref _colorHex, value); }
+    string _colorHex = "";
 
     public DateTime? SentDate
     {
@@ -277,6 +302,12 @@ public class HardwareItem : Notify
 
 public class Order : Notify
 {
+    /// <summary>Номер, который получит ещё не сохранённый заказ (задаёт окно заказа).</summary>
+    public int PlannedNumber { get; set; }
+
+    /// <summary>Номер заказа: у сохранённого — его Id, у нового — ожидаемый следующий номер.</summary>
+    public int Number => Id > 0 ? Id : PlannedNumber;
+
     string _name = "";
     string _notes = "";
     string _projectPhoto = "";
@@ -409,7 +440,7 @@ public class Order : Notify
         var created = new ProductionOrder
         {
             Sub = Productions.Select(p => p.Sub).DefaultIfEmpty(0).Max() + 1,
-            OrderNumber = Id,
+            OrderNumber = Number,
             Manufacturer = choice.Manufacturer,
         };
         Productions.Add(created);
@@ -503,7 +534,11 @@ public class Order : Notify
             }
         if (e.NewItems != null)
             foreach (ProductionOrder p in e.NewItems)
+            {
+                if (p.ColorHex.Length == 0)
+                    p.ColorHex = ProductionColors.Pick(Productions.Where(x => !ReferenceEquals(x, p)).Select(x => x.ColorHex));
                 ProductionChoices.Insert(Math.Min(1 + Productions.IndexOf(p), ProductionChoices.Count), p);
+            }
 
         RefreshProduction();
     }
@@ -542,9 +577,22 @@ public class OrderSummary
     public string Products { get; set; } = "";
     public decimal Cost { get; set; }
     public decimal Price { get; set; }
-    public string Production { get; set; } = "";
-    public int MaterialsTotal { get; set; }
-    public int MaterialsReady { get; set; }
+    public string Status { get; set; } = StatusInDevelopment;
+
+    public const string StatusInDevelopment = "В разработке";
+    public const string StatusInProduction = "В производстве";
+    public const string StatusDone = "Готово";
+
+    /// <summary>
+    /// Статус заказа по его заказам в производство: пока ничего не отправлено (или производства нет) —
+    /// «В разработке»; отправлено хотя бы что-то — «В производстве»; всё готово — «Готово».
+    /// </summary>
+    public static string StatusFor(IReadOnlyCollection<string> productionStatuses)
+    {
+        if (productionStatuses.Count == 0) return StatusInDevelopment;
+        if (productionStatuses.All(s => s == "Готов")) return StatusDone;
+        return productionStatuses.Any(s => s != "Не отправлен") ? StatusInProduction : StatusInDevelopment;
+    }
 
     public string DateText => Date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
     public string CostText => Cost == 0 ? "—" : Money.Format(Cost);
@@ -552,6 +600,4 @@ public class OrderSummary
 
     /// <summary>Название заказа; если не заполнено — перечень изделий.</summary>
     public string Title => string.IsNullOrWhiteSpace(Name) ? Products : Name;
-
-    public string ReadyText => MaterialsTotal == 0 ? "" : $"{MaterialsReady} из {MaterialsTotal}";
 }

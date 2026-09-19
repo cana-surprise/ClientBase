@@ -18,6 +18,40 @@ public class ZeroToVisibleConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>
+/// Цвет заказа в производство («#RRGGBB») → кисть. Параметр: «soft» — бледный фон, «faint» — очень бледный,
+/// без параметра — сам цвет. Пустой цвет (у служебных пунктов списка) даёт прозрачную кисть.
+/// </summary>
+public class ProductionColorConverter : IValueConverter
+{
+    static readonly Dictionary<(string, string), System.Windows.Media.Brush> Cache = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var hex = value as string ?? "";
+        var mode = parameter as string ?? "";
+        if (hex.Length == 0) return System.Windows.Media.Brushes.Transparent;
+
+        if (Cache.TryGetValue((hex, mode), out var cached)) return cached;
+        try
+        {
+            var c = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
+            var mix = mode switch { "soft" => 0.72, "faint" => 0.92, _ => 0.0 };   // доля белого
+            byte Blend(byte x) => (byte)Math.Round(x + (255 - x) * mix);
+            var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(Blend(c.R), Blend(c.G), Blend(c.B)));
+            brush.Freeze();
+            return Cache[(hex, mode)] = brush;
+        }
+        catch (FormatException)
+        {
+            return System.Windows.Media.Brushes.Transparent;
+        }
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Единое подтверждение для любого удаления.</summary>
 public static class Confirm
 {
@@ -26,9 +60,8 @@ public static class Confirm
     public static bool Delete(Window? owner, string question)
     {
         var text = question + "\n\nЭто действие нельзя отменить.";
-        var answer = owner is null
-            ? MessageBox.Show(text, "Подтверждение удаления", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
-            : MessageBox.Show(owner, text, "Подтверждение удаления", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        var answer = Dialogs.Show(owner, text, "Подтверждение удаления", MessageBoxButton.YesNo,
+            MessageBoxImage.Warning, MessageBoxResult.No, destructive: true);
         return answer == MessageBoxResult.Yes;
     }
 }

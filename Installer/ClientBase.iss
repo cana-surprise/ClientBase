@@ -42,7 +42,9 @@ RestartApplications=no
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Создать ярлык на &рабочем столе"; GroupDescription: "Дополнительно:"
+; Только при обычной установке: обновление из самой программы идёт в тихом режиме и не должно
+; пересоздавать ярлык, который пользователь мог удалить или заменить своим.
+Name: "desktopicon"; Description: "Создать ярлык на &рабочем столе"; GroupDescription: "Дополнительно:"; Check: not WizardSilent
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs

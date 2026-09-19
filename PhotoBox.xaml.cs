@@ -102,7 +102,7 @@ public partial class PhotoBox : UserControl
         }
         catch (Exception ex) when (ex is IOException or NotSupportedException or FileFormatException or UnauthorizedAccessException or ArgumentException)
         {
-            MessageBox.Show(Window.GetWindow(this), "Не удалось открыть этот файл как картинку.\nПоддерживаются JPG, PNG, BMP, GIF, TIFF.",
+            Dialogs.Show(Window.GetWindow(this), "Не удалось открыть этот файл как картинку.\nПоддерживаются JPG, PNG, BMP, GIF, TIFF.",
                 AppTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -113,7 +113,7 @@ public partial class PhotoBox : UserControl
         {
             if (!Clipboard.ContainsImage() || Clipboard.GetImage() is not { } image)
             {
-                MessageBox.Show(Window.GetWindow(this),
+                Dialogs.Show(Window.GetWindow(this),
                     "В буфере обмена нет картинки.\nСкопируйте изображение (например, скриншот) и нажмите кнопку снова.",
                     AppTitle, MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
@@ -126,7 +126,7 @@ public partial class PhotoBox : UserControl
         }
         catch (System.Runtime.InteropServices.COMException)
         {
-            MessageBox.Show(Window.GetWindow(this), "Буфер обмена сейчас занят другой программой. Повторите попытку.",
+            Dialogs.Show(Window.GetWindow(this), "Буфер обмена сейчас занят другой программой. Повторите попытку.",
                 AppTitle, MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }

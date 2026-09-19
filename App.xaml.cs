@@ -11,6 +11,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Пока главного окна нет, а сообщения уже могут показываться, программа не должна завершаться
+        // при закрытии такого сообщения — переключаем режим, когда откроется главное окно.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
         // Русские даты, числа и календарь во всём приложении.
         CultureInfo.DefaultThreadCurrentCulture = Money.Ru;
         CultureInfo.DefaultThreadCurrentUICulture = Money.Ru;
@@ -19,11 +23,21 @@ public partial class App : Application
         FrameworkElement.LanguageProperty.OverrideMetadata(
             typeof(FrameworkElement), new FrameworkPropertyMetadata(XmlLanguage.GetLanguage("ru-RU")));
 
+        var showingError = false;
         DispatcherUnhandledException += (_, args) =>
         {
-            MessageBox.Show($"Произошла ошибка:\n\n{args.Exception.Message}", "База клиентов",
-                MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
+            if (showingError) return;   // ошибка внутри самого окна ошибки не должна зациклиться
+            showingError = true;
+            try
+            {
+                Dialogs.Show($"Произошла ошибка:\n\n{args.Exception.Message}", "База клиентов",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                showingError = false;
+            }
         };
 
         try
@@ -33,7 +47,7 @@ public partial class App : Application
             var dataDirectory = AppSettings.DataDirectory;
             if (AppSettings.ConfiguredDataDirectory != null && !Directory.Exists(dataDirectory))
             {
-                var answer = MessageBox.Show(
+                var answer = Dialogs.Show(
                     $"Папка с данными программы сейчас недоступна:\n{dataDirectory}\n\n" +
                     "Возможно, отключён диск или папку переименовали или переместили.\n\n" +
                     "Да — открыть стандартную папку рядом с программой (там будет создана новая пустая база).\n" +
@@ -59,6 +73,8 @@ public partial class App : Application
             db.Init();
             var main = new MainWindow(db);
             main.Show();
+            MainWindow = main;
+            ShutdownMode = ShutdownMode.OnMainWindowClose;   // закрыли главное окно — программа завершилась
 
             // Проверка обновлений: при запуске, не чаще раза в сутки. При запуске с --db (проверки разработчика)
             // не выполняется, если явно не указать --check-updates.
@@ -68,7 +84,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Не удалось открыть базу данных:\n\n{ex.Message}", "База клиентов",
+            Dialogs.Show($"Не удалось открыть базу данных:\n\n{ex.Message}", "База клиентов",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }

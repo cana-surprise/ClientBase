@@ -43,7 +43,7 @@ public static class UpdateUi
             AppSettings.SetLastUpdateCheck(DateTime.Now);
             if (info == null)
             {
-                MessageBox.Show(owner, $"У вас последняя версия программы ({UpdateChecker.CurrentVersion}).",
+                Dialogs.Show(owner, $"У вас последняя версия программы ({UpdateChecker.CurrentVersion}).",
                     Confirm.AppTitle, MessageBoxButton.OK, MessageBoxImage.Information);
                 return null;
             }
@@ -51,7 +51,7 @@ public static class UpdateUi
         }
         catch (Exception ex)
         {
-            MessageBox.Show(owner,
+            Dialogs.Show(owner,
                 "Не удалось проверить обновления. Проверьте подключение к интернету и повторите попытку.\n\n" + ex.Message,
                 Confirm.AppTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
@@ -68,7 +68,7 @@ public static class UpdateUi
                        (notes.Length > 0 ? $"Что нового:\n{notes}\n\n" : "") +
                        "Обновить сейчас? Программа закроется, установится новая версия и запустится снова. " +
                        "Ваши данные не затрагиваются.";
-        if (MessageBox.Show(owner, question, "Обновление программы", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (Dialogs.Show(owner, question, "Обновление программы", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return null;
 
         var target = Path.Combine(Path.GetTempPath(), "ClientBase-update", info.SetupName);
@@ -76,7 +76,7 @@ public static class UpdateUi
         if (window.ShowDialog() == true) return target;
 
         if (window.ErrorMessage != null)
-            MessageBox.Show(owner, "Не удалось скачать обновление:\n" + window.ErrorMessage,
+            Dialogs.Show(owner, "Не удалось скачать обновление:\n" + window.ErrorMessage,
                 Confirm.AppTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
         return null;
     }

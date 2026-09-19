@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using Microsoft.Data.Sqlite;
 
@@ -7,7 +7,7 @@ namespace ClientBase;
 public class Database
 {
     const string DateFormat = "yyyy-MM-dd";
-    const int SchemaVersion = 3;
+    const int SchemaVersion = 4;
 
     readonly string _connectionString;
 
@@ -174,6 +174,10 @@ public class Database
                 CREATE INDEX IX_Hardware_Order ON Hardware(OrderId);
                 """));
         }
+
+        // Версия 4: цвет заказа в производство (подсветка в списках).
+        if (version < 4)
+            Exec(c, "ALTER TABLE ProductionOrders ADD COLUMN Color TEXT NOT NULL DEFAULT ''");
 
         // Колонки OrderItems.UnitPriceKop, OrderItems.IsReady и OrderItems.ProductionOrderId остались от ранних
         // версий и программой больше не используются (цены изделий убраны, в производство уходят материалы).
@@ -351,8 +355,6 @@ public class Database
             SELECT o.Id, o.OrderDate, o.Name,
                    IFNULL(group_concat(i.ProductName, ', '), ''),
                    o.CostKop,
-                   (SELECT COUNT(*) FROM Materials x WHERE x.OrderId = o.Id),
-                   (SELECT COUNT(*) FROM Materials x WHERE x.OrderId = o.Id AND x.IsReady = 1),
                    o.PriceKop
             FROM Orders o
             LEFT JOIN OrderItems i ON i.OrderId = o.Id
@@ -370,42 +372,41 @@ public class Database
                     Name = r.GetString(2),
                     Products = r.GetString(3),
                     Cost = r.GetInt64(4) / 100m,
-                    MaterialsTotal = r.GetInt32(5),
-                    MaterialsReady = r.GetInt32(6),
-                    Price = r.GetInt64(7) / 100m,
+                    Price = r.GetInt64(5) / 100m,
                 });
         }
 
-        // Краткая сводка по производству: «12-1 Цех А: в производстве; 12-2 Цех Б: не отправлен».
-        var lines = new Dictionary<int, List<string>>();
+        // Статус заказа складывается из состояния его заказов в производство.
+        var statuses = new Dictionary<int, List<string>>();
         using (var cmd = Cmd(c, """
-            SELECT po.OrderId, po.SubNumber, IFNULL(m.Name, ''), po.SentDate,
+            SELECT po.OrderId, po.SentDate,
                    (SELECT COUNT(*) FROM Materials x WHERE x.ProductionOrderId = po.Id),
                    (SELECT COUNT(*) FROM Materials x WHERE x.ProductionOrderId = po.Id AND x.IsReady = 1)
             FROM ProductionOrders po
             JOIN Orders o ON o.Id = po.OrderId
-            LEFT JOIN Manufacturers m ON m.Id = po.ManufacturerId
             WHERE o.ClientId = @c
-            ORDER BY po.OrderId, po.SubNumber
             """, ("@c", clientId)))
         using (var r = cmd.ExecuteReader())
         {
             while (r.Read())
             {
                 var orderId = r.GetInt32(0);
-                var maker = r.GetString(2);
-                var status = ProductionOrder.StatusFor(ReadDate(r, 3), r.GetInt32(4), r.GetInt32(5)).ToLowerInvariant();
-                var text = $"{orderId}-{r.GetInt32(1)}" + (maker.Length > 0 ? $" {maker}" : "") + $": {status}";
-                if (!lines.TryGetValue(orderId, out var l)) lines[orderId] = l = new();
-                l.Add(text);
+                if (!statuses.TryGetValue(orderId, out var l)) statuses[orderId] = l = new();
+                l.Add(ProductionOrder.StatusFor(ReadDate(r, 1), r.GetInt32(2), r.GetInt32(3)));
             }
         }
         foreach (var o in list)
-            if (lines.TryGetValue(o.Id, out var l)) o.Production = string.Join("; ", l);
+            o.Status = OrderSummary.StatusFor(statuses.GetValueOrDefault(o.Id) ?? new());
 
         return list;
     }
 
+    /// <summary>Номер, который получит следующий новый заказ (наибольший существующий + 1).</summary>
+    public int NextOrderNumber()
+    {
+        using var c = Open();
+        return (int)Scalar(c, "SELECT IFNULL(MAX(Id), 0) + 1 FROM Orders");
+    }
     public Order? LoadOrder(int id)
     {
         using var c = Open();
@@ -431,7 +432,7 @@ public class Database
         }
 
         var productions = new Dictionary<int, ProductionOrder>();
-        using (var cmd = Cmd(c, "SELECT Id, SubNumber, ManufacturerId, ProductionNumber, SentDate, ReadyDate FROM ProductionOrders WHERE OrderId = @id ORDER BY SubNumber, Id", ("@id", id)))
+        using (var cmd = Cmd(c, "SELECT Id, SubNumber, ManufacturerId, ProductionNumber, SentDate, ReadyDate, Color FROM ProductionOrders WHERE OrderId = @id ORDER BY SubNumber, Id", ("@id", id)))
         using (var r = cmd.ExecuteReader())
         {
             while (r.Read())
@@ -445,6 +446,7 @@ public class Database
                     ProductionNumber = r.GetString(3),
                     SentDate = ReadDate(r, 4),
                     ReadyDate = ReadDate(r, 5),
+                    ColorHex = r.GetString(6),
                 };
                 productions[p.Id] = p;
                 order.Productions.Add(p);
@@ -528,9 +530,9 @@ public class Database
             var ids = new Dictionary<ProductionOrder, int>();
             foreach (var p in order.Productions)
             {
-                Exec(c, "INSERT INTO ProductionOrders (OrderId, SubNumber, ManufacturerId, ProductionNumber, SentDate, ReadyDate) VALUES (@o, @sub, @m, @num, @sent, @ready)",
+                Exec(c, "INSERT INTO ProductionOrders (OrderId, SubNumber, ManufacturerId, ProductionNumber, SentDate, ReadyDate, Color) VALUES (@o, @sub, @m, @num, @sent, @ready, @color)",
                     ("@o", id), ("@sub", p.Sub), ("@m", p.Manufacturer?.Id), ("@num", p.ProductionNumber.Trim()),
-                    ("@sent", FormatDate(p.SentDate)), ("@ready", FormatDate(p.ReadyDate)));
+                    ("@sent", FormatDate(p.SentDate)), ("@ready", FormatDate(p.ReadyDate)), ("@color", p.ColorHex));
                 ids[p] = (int)Scalar(c, "SELECT last_insert_rowid()");
             }
 

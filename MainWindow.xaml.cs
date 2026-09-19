@@ -15,6 +15,7 @@ public partial class MainWindow : Window
     List<ClientListItem> _all = new();
     Client? _client;
     bool _dirty;
+    bool _editing;
     bool _suppressSelection;
     (string File, string Arguments)? _launchAfterClose;
 
@@ -92,9 +93,65 @@ public partial class MainWindow : Window
         SavedText.Text = "";
         _dirty = false;
 
+        // Сохранённый клиент открывается компактно, новый — сразу для заполнения.
+        SetEditing(client != null && client.Id == 0);
+        CancelEditButton.Visibility = client is { Id: > 0 } ? Visibility.Visible : Visibility.Collapsed;
+
         if (client != null) Hook(client);
         LoadOrders();
     }
+
+    void SetEditing(bool editing)
+    {
+        _editing = editing;
+        EditPanel.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+        ViewPanel.Visibility = editing || _client == null ? Visibility.Collapsed : Visibility.Visible;
+        if (!editing) FillView();
+    }
+
+    /// <summary>Заполняет компактный вид карточки; пустые строки скрываются.</summary>
+    void FillView()
+    {
+        if (_client == null) return;
+        ViewName.Text = _client.Name;
+
+        var phones = _client.Phones
+            .Where(p => !string.IsNullOrWhiteSpace(p.Number))
+            .Select(p => string.IsNullOrWhiteSpace(p.Note) ? p.Number.Trim() : $"{p.Number.Trim()} ({p.Note.Trim()})");
+        Row(ViewPhonesLabel, ViewPhones, string.Join("   ·   ", phones));
+        Row(ViewEmailLabel, ViewEmail, _client.Email.Trim());
+        Row(ViewAddressLabel, ViewAddress, _client.Address.Trim());
+        Row(ViewNotesLabel, ViewNotesScroll, _client.Notes.Trim());
+        ViewNotes.Text = _client.Notes.Trim();
+
+        static void Row(UIElement label, UIElement value, string text)
+        {
+            if (value is TextBlock tb) tb.Text = text;
+            var v = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            label.Visibility = v;
+            value.Visibility = v;
+        }
+    }
+
+    void EditClient_Click(object sender, RoutedEventArgs e)
+    {
+        SetEditing(true);
+        SavedText.Text = "";
+        NameBox.Focus();
+        NameBox.CaretIndex = NameBox.Text.Length;
+    }
+
+    void CancelEdit_Click(object sender, RoutedEventArgs e)
+    {
+        if (_client == null || _client.Id == 0) return;
+        if (_dirty && Dialogs.Show(this, "Отменить внесённые изменения?", AppTitle, MessageBoxButton.YesNo,
+                MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+        ShowClient(_db.LoadClient(_client.Id));
+    }
+
+    void NotesGrip_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e) =>
+        NotesBox.Height = Math.Clamp(NotesBox.ActualHeight + e.VerticalChange, 54, 420);
 
     void Hook(Client c)
     {
@@ -146,7 +203,7 @@ public partial class MainWindow : Window
     {
         if (!_dirty || _client == null) return true;
         var name = string.IsNullOrWhiteSpace(_client.Name) ? "новый клиент" : _client.Name;
-        var answer = MessageBox.Show(this, $"Сохранить изменения в карточке «{name}»?", AppTitle,
+        var answer = Dialogs.Show(this, $"Сохранить изменения в карточке «{name}»?", AppTitle,
             MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
         return answer switch
         {
@@ -303,7 +360,7 @@ public partial class MainWindow : Window
 
         switch (e.Key)
         {
-            case Key.S when _client != null:
+            case Key.S when _client != null && _editing:
                 SaveClient();
                 break;
             case Key.N:
@@ -336,5 +393,5 @@ public partial class MainWindow : Window
         }
     }
 
-    void Info(string text) => MessageBox.Show(this, text, AppTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+    void Info(string text) => Dialogs.Show(this, text, AppTitle, MessageBoxButton.OK, MessageBoxImage.Information);
 }

@@ -133,7 +133,7 @@ public partial class SettingsWindow : Window
             ? $"В папке\n{target}\nуже есть база данных программы.\n\nПереключиться на неё? Текущие данные останутся на месте и копироваться не будут."
             : $"Скопировать все данные (база клиентов, фото, резервные копии) в папку\n{target}\nи дальше работать с ней?\n\n" +
               "Старая папка останется на месте: удалите её сами, когда убедитесь, что всё работает.";
-        if (MessageBox.Show(this, question, AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (Dialogs.Show(this, question, AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
         try
@@ -153,7 +153,7 @@ public partial class SettingsWindow : Window
         }
 
         DataPathText.Text = $"{target}\n(вступит в силу после перезапуска программы)";
-        var restart = MessageBox.Show(this,
+        var restart = Dialogs.Show(this,
             "Папка с данными изменена. Чтобы программа начала работать с новой папкой, её нужно перезапустить.\n\n" +
             "Перезапустить сейчас? Всё, что вы измените до перезапуска, попадёт ещё в старую папку.",
             AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -170,5 +170,5 @@ public partial class SettingsWindow : Window
         catch (InvalidOperationException ex) { Info(ex.Message); }
     }
 
-    void Info(string text) => MessageBox.Show(this, text, AppTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+    void Info(string text) => Dialogs.Show(this, text, AppTitle, MessageBoxButton.OK, MessageBoxImage.Information);
 }

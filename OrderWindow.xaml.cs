@@ -45,15 +45,15 @@ public partial class OrderWindow : Window
     {
         _order = orderId is int id
             ? _db.LoadOrder(id) ?? throw new InvalidOperationException("Заказ не найден в базе.")
-            : new Order { ClientId = _clientId };
+            : new Order { ClientId = _clientId, PlannedNumber = _db.NextOrderNumber() };
 
         // Выбор «＋ Изготовитель — новый заказ» обрабатывается, когда WPF закончит обновлять привязку.
         _order.Defer = action => Dispatcher.BeginInvoke(action);
         _order.SetManufacturers(Manufacturers);
 
         _savedPhotos = PhotoNames(_order).ToHashSet();
-        NumberText.Text = _order.Id == 0 ? "Новый заказ" : $"№ {_order.Id}";
-        Title = _order.Id == 0 ? $"Новый заказ — {_clientName}" : $"Заказ № {_order.Id} — {_clientName}";
+        NumberText.Text = $"№ {_order.Number}";
+        Title = $"Заказ № {_order.Number} — {_clientName}";
         DataContext = _order;
         ShowItemPhoto(null);
     }
@@ -142,7 +142,7 @@ public partial class OrderWindow : Window
         CommitEdits();
         if (_order.IsDirty)
         {
-            var answer = MessageBox.Show(this, "Сохранить изменения в заказе?", AppTitle,
+            var answer = Dialogs.Show(this, "Сохранить изменения в заказе?", AppTitle,
                 MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
             if (answer == MessageBoxResult.Cancel || (answer == MessageBoxResult.Yes && !Save()))
             {
@@ -390,14 +390,14 @@ public partial class OrderWindow : Window
         var production = new ProductionOrder
         {
             Sub = _order.Productions.Select(p => p.Sub).DefaultIfEmpty(0).Max() + 1,
-            OrderNumber = _order.Id,
+            OrderNumber = _order.Number,
         };
         _order.Productions.Add(production);
 
         var waiting = _order.NoProduction.Lines.Count;
         if (_order.Productions.Count == 1 && waiting > 0)
         {
-            var answer = MessageBox.Show(this,
+            var answer = Dialogs.Show(this,
                 $"Отправить в этот заказ в производство все материалы ({waiting})?\n\n" +
                 "Потом любой материал можно перенести в другой заказ на вкладке «Материалы».",
                 AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -428,7 +428,7 @@ public partial class OrderWindow : Window
         if (dialog.ShowDialog(this) != true) return;
         _order.ProjectFolder = dialog.FolderName;
 
-        var answer = MessageBox.Show(this,
+        var answer = Dialogs.Show(this,
             "Подтянуть из этой папки изделия, общее фото проекта, материалы и фурнитуру прямо сейчас?", AppTitle,
             MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (answer != MessageBoxResult.Yes) return;
@@ -597,6 +597,6 @@ public partial class OrderWindow : Window
 
     // ---------- сообщения ----------
 
-    void Warn(string text) => MessageBox.Show(this, text, AppTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
-    void Info(string text) => MessageBox.Show(this, text, AppTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+    void Warn(string text) => Dialogs.Show(this, text, AppTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
+    void Info(string text) => Dialogs.Show(this, text, AppTitle, MessageBoxButton.OK, MessageBoxImage.Information);
 }

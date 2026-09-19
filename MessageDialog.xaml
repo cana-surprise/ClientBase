@@ -1,0 +1,32 @@
+<Window x:Class="ClientBase.MessageDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="" Width="500" MinWidth="380" MaxWidth="640" SizeToContent="Height"
+        ResizeMode="NoResize" ShowInTaskbar="False" FontSize="14"
+        Background="{StaticResource BgBrush}" Foreground="{StaticResource TextBrush}"
+        KeyDown="Window_KeyDown">
+    <Grid Margin="22,20,22,18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border x:Name="IconBadge" Width="46" Height="46" CornerRadius="23" VerticalAlignment="Top"
+                Margin="0,2,16,0" Visibility="Collapsed">
+            <TextBlock x:Name="IconGlyph" FontSize="26" FontWeight="Bold" HorizontalAlignment="Center"
+                       VerticalAlignment="Center" Margin="0,-2,0,0"/>
+        </Border>
+
+        <ScrollViewer Grid.Column="1" MaxHeight="440" VerticalScrollBarVisibility="Auto">
+            <TextBlock x:Name="MessageText" TextWrapping="Wrap" FontSize="14.5" LineHeight="21"
+                       VerticalAlignment="Center"/>
+        </ScrollViewer>
+
+        <StackPanel x:Name="ButtonsPanel" Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,22,0,0"/>
+    </Grid>
+</Window>
