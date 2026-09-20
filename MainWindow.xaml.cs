@@ -306,7 +306,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!Confirm.Delete(this, $"Удалить заказ № {o.Id} от {o.DateText}" + (o.Price > 0 ? $" на {o.PriceText}" : "") + "?"))
+        if (!Confirm.Delete(this, $"Удалить заказ № {o.Number} от {o.DateText}" + (o.Price > 0 ? $" на {o.PriceText}" : "") + "?"))
             return;
 
         var photos = _db.GetOrderPhotos(o.Id);

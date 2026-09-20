@@ -45,7 +45,7 @@ public partial class OrderWindow : Window
     {
         _order = orderId is int id
             ? _db.LoadOrder(id) ?? throw new InvalidOperationException("Заказ не найден в базе.")
-            : new Order { ClientId = _clientId, PlannedNumber = _db.NextOrderNumber() };
+            : new Order { ClientId = _clientId, Number = _db.NextOrderNumber(_clientId) };
 
         // Выбор «＋ Изготовитель — новый заказ» обрабатывается, когда WPF закончит обновлять привязку.
         _order.Defer = action => Dispatcher.BeginInvoke(action);

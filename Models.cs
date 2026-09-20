@@ -302,11 +302,11 @@ public class HardwareItem : Notify
 
 public class Order : Notify
 {
-    /// <summary>Номер, который получит ещё не сохранённый заказ (задаёт окно заказа).</summary>
-    public int PlannedNumber { get; set; }
-
-    /// <summary>Номер заказа: у сохранённого — его Id, у нового — ожидаемый следующий номер.</summary>
-    public int Number => Id > 0 ? Id : PlannedNumber;
+    /// <summary>
+    /// Номер заказа у клиента (у каждого клиента своя нумерация с 1). Id — внутренний ключ и на экране не показывается.
+    /// У нового заказа здесь ожидаемый следующий номер — его задаёт окно заказа; при сохранении база присваивает окончательный.
+    /// </summary>
+    public int Number { get; set; }
 
     string _name = "";
     string _notes = "";
@@ -572,6 +572,9 @@ public class Order : Notify
 public class OrderSummary
 {
     public int Id { get; set; }
+
+    /// <summary>Номер заказа у клиента (то, что видит пользователь; Id — внутренний ключ).</summary>
+    public int Number { get; set; }
     public DateTime Date { get; set; }
     public string Name { get; set; } = "";
     public string Products { get; set; } = "";

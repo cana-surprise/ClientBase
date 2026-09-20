@@ -7,7 +7,7 @@ namespace ClientBase;
 public class Database
 {
     const string DateFormat = "yyyy-MM-dd";
-    const int SchemaVersion = 4;
+    const int SchemaVersion = 5;
 
     readonly string _connectionString;
 
@@ -178,6 +178,17 @@ public class Database
         // Версия 4: цвет заказа в производство (подсветка в списках).
         if (version < 4)
             Exec(c, "ALTER TABLE ProductionOrders ADD COLUMN Color TEXT NOT NULL DEFAULT ''");
+
+        // Версия 5: у каждого клиента своя нумерация заказов с 1. Прежний номер (общий Id) остаётся внутренним
+        // ключом, а существующим заказам номера раздаются по порядку внутри клиента.
+        if (version < 5)
+        {
+            InTransaction(c, () =>
+            {
+                Exec(c, "ALTER TABLE Orders ADD COLUMN Number INTEGER NOT NULL DEFAULT 0");
+                Exec(c, "UPDATE Orders SET Number = (SELECT COUNT(*) FROM Orders o2 WHERE o2.ClientId = Orders.ClientId AND o2.Id <= Orders.Id)");
+            });
+        }
 
         // Колонки OrderItems.UnitPriceKop, OrderItems.IsReady и OrderItems.ProductionOrderId остались от ранних
         // версий и программой больше не используются (цены изделий убраны, в производство уходят материалы).
@@ -355,7 +366,8 @@ public class Database
             SELECT o.Id, o.OrderDate, o.Name,
                    IFNULL(group_concat(i.ProductName, ', '), ''),
                    o.CostKop,
-                   o.PriceKop
+                   o.PriceKop,
+                   o.Number
             FROM Orders o
             LEFT JOIN OrderItems i ON i.OrderId = o.Id
             WHERE o.ClientId = @c
@@ -373,6 +385,7 @@ public class Database
                     Products = r.GetString(3),
                     Cost = r.GetInt64(4) / 100m,
                     Price = r.GetInt64(5) / 100m,
+                    Number = r.GetInt32(6),
                 });
         }
 
@@ -401,19 +414,23 @@ public class Database
         return list;
     }
 
-    /// <summary>Номер, который получит следующий новый заказ (наибольший существующий + 1).</summary>
-    public int NextOrderNumber()
+    /// <summary>
+    /// Номер, который получит следующий новый заказ этого клиента: у каждого клиента своя нумерация с 1
+    /// (наибольший номер среди его заказов + 1).
+    /// </summary>
+    public int NextOrderNumber(int clientId)
     {
         using var c = Open();
-        return (int)Scalar(c, "SELECT IFNULL(MAX(Id), 0) + 1 FROM Orders");
+        return (int)Scalar(c, "SELECT IFNULL(MAX(Number), 0) + 1 FROM Orders WHERE ClientId = @c", ("@c", clientId));
     }
+
     public Order? LoadOrder(int id)
     {
         using var c = Open();
         var makers = ReadManufacturers(c).ToDictionary(m => m.Id);
 
         Order order;
-        using (var cmd = Cmd(c, "SELECT Id, ClientId, OrderDate, Name, Notes, ProjectPhoto, ProjectFolder, CostKop, PriceKop FROM Orders WHERE Id = @id", ("@id", id)))
+        using (var cmd = Cmd(c, "SELECT Id, ClientId, OrderDate, Name, Notes, ProjectPhoto, ProjectFolder, CostKop, PriceKop, Number FROM Orders WHERE Id = @id", ("@id", id)))
         using (var r = cmd.ExecuteReader())
         {
             if (!r.Read()) return null;
@@ -428,6 +445,7 @@ public class Database
                 ProjectFolder = r.GetString(6),
                 Cost = r.GetInt64(7) / 100m,
                 Price = r.GetInt64(8) / 100m,
+                Number = r.GetInt32(9),
             };
         }
 
@@ -441,7 +459,7 @@ public class Database
                 {
                     Id = r.GetInt32(0),
                     Sub = r.GetInt32(1),
-                    OrderNumber = order.Id,
+                    OrderNumber = order.Number,
                     Manufacturer = !r.IsDBNull(2) && makers.TryGetValue(r.GetInt32(2), out var m) ? m : null,
                     ProductionNumber = r.GetString(3),
                     SentDate = ReadDate(r, 4),
@@ -511,11 +529,12 @@ public class Database
             };
             if (id == 0)
             {
-                // Номер заказа = наибольший существующий + 1 (1, если заказов нет). Встроенный счётчик
-                // AUTOINCREMENT после удаления заказов не откатывается, и нумерация «убегала» бы вперёд.
+                // Id — внутренний ключ (общий счётчик). Номер заказа у каждого клиента свой: наибольший номер
+                // среди его заказов + 1 (1, если заказов нет); после удаления последнего заказа номер освобождается.
                 id = (int)Scalar(c, "SELECT IFNULL(MAX(Id), 0) + 1 FROM Orders");
-                Exec(c, "INSERT INTO Orders (Id, ClientId, OrderDate, Name, Notes, ProjectPhoto, ProjectFolder, CostKop, PriceKop) VALUES (@newId, @client, @date, @name, @notes, @photo, @folder, @cost, @price)",
-                    args.Append(("@newId", (object?)id)).ToArray());
+                var number = (int)Scalar(c, "SELECT IFNULL(MAX(Number), 0) + 1 FROM Orders WHERE ClientId = @client", ("@client", order.ClientId));
+                Exec(c, "INSERT INTO Orders (Id, ClientId, Number, OrderDate, Name, Notes, ProjectPhoto, ProjectFolder, CostKop, PriceKop) VALUES (@newId, @client, @number, @date, @name, @notes, @photo, @folder, @cost, @price)",
+                    args.Append(("@newId", (object?)id)).Append(("@number", (object?)number)).ToArray());
             }
             else
             {

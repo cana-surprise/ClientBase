@@ -252,7 +252,7 @@
                               SelectionMode="Single" RowHeight="36" CanUserAddRows="False"
                               MouseDoubleClick="OrdersGrid_MouseDoubleClick">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="56"
+                            <DataGridTextColumn Header="№" Binding="{Binding Number}" Width="56"
                                                 ElementStyle="{StaticResource CellText}"/>
                             <DataGridTextColumn Header="Дата" Binding="{Binding DateText}" Width="100"
                                                 ElementStyle="{StaticResource CellText}"/>

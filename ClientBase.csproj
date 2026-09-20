@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>ClientBase</RootNamespace>
     <AssemblyName>ClientBase</AssemblyName>
-    <Version>1.5.0</Version>
+    <Version>1.5.1</Version>
     <Product>База клиентов</Product>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
